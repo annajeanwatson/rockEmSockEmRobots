@@ -48,15 +48,7 @@ def initListener(sqs_queue_url, dist_dict, CONFIG):
 
                 msg_json = json.loads(msg["Body"])
 
-                dist_dict.receive(msg_json)
+                # recieve logic here 
 
                 # Remove the message from the queue
                 delete_sqs_message(sqs_queue_url, msg['ReceiptHandle'])
-                conflict_occured = dist_dict.fix_meeting_conflicts()
-
-                if conflict_occured:
-                    # print("Conflict on receive, updating!")
-                    for node in CONFIG["nodes"]:
-                        if node["id"] != dist_dict.node_id:
-                            message = dist_dict.send(node["id"])
-                            send_sqs_message(node["queue_url"], node["queue_name"], json.dumps(message))
