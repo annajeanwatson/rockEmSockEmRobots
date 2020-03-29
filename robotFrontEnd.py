@@ -4,27 +4,27 @@ def inputMenu(dist_dict, CONFIG):
 
         print("")
         print("Please select from the following menu:")
-        print("1. Right Punch") 
-        print("2. Left Punch") 
-        print("3. Block Left")
-        print("4. Block Right")
+        print("w. Right Punch") 
+        print("q. Left Punch") 
+        print("a. Block Left")
+        print("s. Block Right")
         print("")
 
         user_input = input()
 
-        if user_input == "1":
+        if user_input == "w":
 
             pass
 
-        if user_input == "2":
+        if user_input == "q":
 
             pass
 
-        if user_input == "3":
+        if user_input == "a":
 
             pass
         
-        if user_input == "4":
+        if user_input == "s":
 
            pass
 
