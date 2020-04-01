@@ -34,6 +34,7 @@ class Node:
         # should initalize as a follower
         self.follower = follower
 
+        # getters and setters for state bools
         def setLeader(self, setValue):
             self.leader = setValue
 
