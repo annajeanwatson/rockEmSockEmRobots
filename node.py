@@ -118,7 +118,7 @@ class Node:
                 print("I've timed out!!!!")
                 self.set_as_candidate()
 
-                did_win = self.start_election()
+                #did_win = self.start_election()
 
                 if did_win is True:
                     self.set_as_leader()
