@@ -2,6 +2,7 @@
 import time
 import random
 from typing import *
+import zmq
 
 class Node:
     def __init__(self, candidate = False, leader = False, follower = True):
@@ -139,8 +140,6 @@ class Node:
                 # What do I do if I'm a candidate or leader?
 
 
-
-
     def main_loop(self):
 
         while True:
@@ -153,6 +152,7 @@ class Node:
 
                 print("I've timed out!!!!")
                 print("Starting election")
+
                 self.reset_timeout()
                 self.set_as_candidate()
                 self.term += 1
@@ -174,7 +174,6 @@ class Node:
 
                 # Send heartbeat to other nodes
                 self.send_heartbeats()
-
 
             # If leader send hearbeat
             # Check for messages
