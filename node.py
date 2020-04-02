@@ -1,7 +1,10 @@
-import send, recieve, robotFrontEnd
+# import send, recieve, robotFrontEnd
+import time
+import random
+from typing import *
 
 class Node:
-    def __init__(self, leader, candidate, follower):
+    def __init__(self, candidate = False, leader = False, follower = True):
         # possible states
 
         '''Can receive:
@@ -34,31 +37,106 @@ class Node:
         # should initalize as a follower
         self.follower = follower
 
-        def setLeader(self, setValue):
-            self.leader = setValue
+        # Setting self.timeout_time
+        self.reset_timeout()
 
-        def isLeader():
-            if (self.leader == True):
-                return True
-            else:
-                return False
+    def check_timeout(self) -> bool:
+        return time.time() >= self.timeout_time
 
-        def setCandidate(self, setValue):
-            self.candidate = setValue
+    def reset_timeout(self) -> None:
+        self.timeout_time = time.time() + random.uniform(15, 25)
 
-        def isCandidate():
-            if (self.candidate == True):
-                return True
-            else:
-                return False
+    def isLeader(self):
+        if (self.leader == True):
+            return True
+        else:
+            return False
 
-        def setFollower(self, setValue):
-            self.follower = setValue
+    def set_as_candidate(self):
+        self.leader = False
+        self.follower = False
+        self.candidate = True
 
-        def isFollower():
-            if (self.follower == True):
-                return True
-            else:
-                return False
+    def set_as_leader(self):
+        self.leader = True
+        self.follower = False
+        self.candidate = False
 
+    def set_as_follower(self):
+        self.leader = False
+        self.follower = True
+        self.candidate = False
+
+    def isCandidate(self):
+        if (self.candidate == True):
+            return True
+        else:
+            return False
+
+    def isFollower(self):
+        if (self.follower == True):
+            return True
+        else:
+            return False
+
+    def start_election(self):
+
+        # Send election message to every other node
+        self.send_election_messages()
+
+        self.receive_election_messages()
+
+        print("Won election!")
+
+        return True
+
+
+
+
+    def send_election_messages(self):
+        print("Sending Election Messages to all nodes")
+        pass
+
+    def receive_election_messages(self):
+        print("Receiving election messages...")
+        time.sleep(2)
+        pass
         
+
+    def send_heartbeats(self):
+
+        print("Sending heartbeats...")
+        pass
+
+
+    def main_loop(self):
+
+        while True:
+
+            if self.check_timeout() and not self.isLeader():
+
+                print("I've timed out!!!!")
+                self.set_as_candidate()
+
+                did_win = self.start_election()
+
+                if did_win is True:
+                    self.set_as_leader()
+
+
+            if self.isLeader():
+
+                # Send heartbeat to other nodes
+                self.send_heartbeats()
+
+
+            # If leader send hearbeat
+            # Check for messages
+            # 
+            
+
+
+if __name__ == "__main__":
+
+    myNode = Node()
+    myNode.main_loop()
