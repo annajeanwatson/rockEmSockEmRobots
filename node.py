@@ -2,10 +2,13 @@
 import time
 import random
 from typing import *
-import zmq
+import boto3
+from sqs import send_sqs_message, delete_sqs_message, retrieve_sqs_messages
+import sys
+import json
 
 class Node:
-    def __init__(self, candidate = False, leader = False, follower = True):
+    def __init__(self, sqs_info, node_id, candidate = False, leader = False, follower = True):
         # possible states
 
         '''Can receive:
@@ -17,8 +20,7 @@ class Node:
 		2. AppendLog RPCs to servers
 		3. Response to client'''
         self.leader = leader
-        self.num_nodes = 5
-
+        self.num_nodes = len(sqs_info)
 
         '''Can receive:
 		1. RequestVote RPCs --> refuse
@@ -47,6 +49,25 @@ class Node:
 
         # Setting self.timeout_time
         self.reset_timeout()
+
+        self.sqs_client = boto3.client('sqs', region_name='us-east-2')
+        self.sqs_resource = boto3.resource('sqs', region_name='us-east-2')
+
+        self.sqs_info = sqs_info
+        self.node_id = node_id
+
+        self.log = []
+
+    def send_message_to_all_other_nodes(self, message: str):
+
+        for node in self.sqs_info:
+            if node["id"] == self.node_id:
+                continue
+            send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_url"], message)
+
+    def send_message_to_one_node(self, node_id: int, message: str):
+        node = self.sqs_info[node_id]
+        send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_url"], message)
 
     def check_timeout(self) -> bool:
         return time.time() >= self.timeout_time
@@ -87,16 +108,6 @@ class Node:
         else:
             return False
 
-    def start_election(self):
-
-        # Send election message to every other node
-        self.send_election_messages()
-
-        self.receive_election_messages()
-
-        print("Won election!")
-
-        return True
 
 
 
@@ -108,47 +119,43 @@ class Node:
             return False
 
 
-
-    def send_election_messages(self):
-        print("Sending Election Messages to all nodes")
-        pass
-
-    def receive_election_messages(self):
-        print("Receiving election messages...")
-        time.sleep(2)
-        pass
         
 
     def send_heartbeats(self):
 
-        print("Sending heartbeats...")
-        pass
+        msg = {"type": "heartbeat", "node_id": self.node_index, "log": self.log, "term": self.term}
+        self.send_message_to_all_other_nodes(json.dumps(msg))
 
-    def process_incoming_messages(self):
+    # {"type": "electionRequest", "node_id": 0, "log": []}
+
+    def process_latest_message(self):
 
         # Somehow build message list
-        messages = []
-        for message in messages:
+        message = json.loads(retrieve_sqs_messages(self.sqs_client, self.sqs_info[self.node_id]["queue_url"]))
 
-            if message["type"] == "vote":
-                self.votes += 1
+        print(message)
 
-            elif message["type"] == "heartbeat":
-                if self.isCandidate():
-                    if message["term"] >= self.term:
-                        self.set_as_follower()
+        if message["type"] == "vote":
+            self.votes += 1
+            # if it's the majority (3) you win self.leader = true
 
-            elif message["type"] == "electionRequest":
-                if self.isFollower():
-                    # Send vote to requester
-                # What do I do if I'm a candidate or leader?
+        elif message["type"] == "heartbeat":
+            if self.isCandidate():
+                if message["term"] >= self.term:
+                    self.set_as_follower()
 
+        elif message["type"] == "electionRequest":
+            vote_msg = {"type": "vote", "node_id": self.node_index, "log": self.log, "term": self.term}
+            self.send_message_to_one_node(message["node_id"], json.dumps(vote_msg))
+    
     def main_loop(self):
 
         while True:
 
+            time.sleep(1)
+
             # Check messages
-            self.process_incoming_messages()
+            self.process_latest_message()
 
             # Timed out, start new election!
             if self.check_timeout() and not self.isLeader():
@@ -159,7 +166,7 @@ class Node:
                 self.reset_timeout()
                 self.set_as_candidate()
                 self.term += 1
-                self.votes += 1
+                self.votes = 1 # reset votes to just yourself
 
                 # send request for vote messages to all other nodes
 
@@ -181,10 +188,14 @@ class Node:
             # If leader send hearbeat
             # Check for messages
             # 
-            
-
-
+            # 
+ 
 if __name__ == "__main__":
 
-    myNode = Node()
+    node_id = int(sys.argv[1])
+
+    with open('ec2_setup.json') as f:
+        CONFIG = json.load(f)
+
+    myNode = Node(CONFIG["nodes"], node_id)
     myNode.main_loop()
