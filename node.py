@@ -16,6 +16,7 @@ class Node:
 		2. AppendLog RPCs to servers
 		3. Response to client'''
         self.leader = leader
+        self.num_nodes = 5
 
 
         '''Can receive:
@@ -34,6 +35,11 @@ class Node:
 		4. AppendLog RPCs
 	    Can send:
 		1. Response to RequestVote'''
+
+        self.term = 0
+
+        self.votes = 0
+
         # should initalize as a follower
         self.follower = follower
 
@@ -92,6 +98,14 @@ class Node:
 
 
 
+    def check_if_won(self) -> bool:
+
+        if self.votes/self.num_nodes >= 0.5:
+            return True
+        else:
+            return False
+
+
 
     def send_election_messages(self):
         print("Sending Election Messages to all nodes")
@@ -108,20 +122,52 @@ class Node:
         print("Sending heartbeats...")
         pass
 
+    def process_incoming_messages(self):
+
+        # Somehow build message list
+        messages = []
+        for message in messages:
+            if message["type"] == "vote":
+                self.votes += 1
+            elif message["type"] == "heartbeat":
+                if self.isCandidate():
+                    if message["term"] >= self.term:
+                        self.set_as_follower()
+            elif message["type"] == "VoteRequest":
+                if self.isFollower():
+                    # Send vote to requester
+                # What do I do if I'm a candidate or leader?
+
+
+
 
     def main_loop(self):
 
         while True:
 
+            # Check messages
+            self.process_incoming_messages()
+
+            # Timed out, start new election!
             if self.check_timeout() and not self.isLeader():
 
                 print("I've timed out!!!!")
+                print("Starting election")
+                self.reset_timeout()
                 self.set_as_candidate()
+                self.term += 1
+                self.votes += 1
 
-                #did_win = self.start_election()
+                # send request for vote messages to all other nodes
 
-                if did_win is True:
+            # Check if we've won election
+            if self.isCandidate():
+
+                # Check for incoming votes
+                # votes += received_votes
+                if self.check_if_won():
                     self.set_as_leader()
+                    self.send_heartbeats()
 
 
             if self.isLeader():
