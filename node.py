@@ -40,6 +40,7 @@ class Node:
         self.term = 0
 
         self.votes = 0
+        self.hasVoted = False
 
         # should initalize as a follower
         self.follower = follower
@@ -128,17 +129,19 @@ class Node:
         # Somehow build message list
         messages = []
         for message in messages:
+
             if message["type"] == "vote":
                 self.votes += 1
+
             elif message["type"] == "heartbeat":
                 if self.isCandidate():
                     if message["term"] >= self.term:
                         self.set_as_follower()
-            elif message["type"] == "VoteRequest":
+
+            elif message["type"] == "electionRequest":
                 if self.isFollower():
                     # Send vote to requester
                 # What do I do if I'm a candidate or leader?
-
 
     def main_loop(self):
 

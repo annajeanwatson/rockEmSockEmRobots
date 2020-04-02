@@ -1,7 +1,7 @@
 import logging
 import boto3
 from botocore.exceptions import ClientError
-from .amazonSqsSendMessage import send_sqs_message
+from send import send_sqs_message
 import time
 import json
 
