@@ -3,7 +3,7 @@ import time
 import random
 from typing import *
 import boto3
-from sqs import send_sqs_message, delete_sqs_message, retrieve_sqs_messages
+from sqs import send_sqs_message, delete_sqs_message, retrieve_sqs_messages, purge_queues
 import sys
 import json
 
@@ -58,22 +58,27 @@ class Node:
 
         self.log = []
 
+        try:
+            purge_queues(self.sqs_client, self.sqs_info[self.node_id]["queue_url"])
+        except:
+            print("purge timeout...")
+
     def send_message_to_all_other_nodes(self, message: str):
 
         for node in self.sqs_info:
             if node["id"] == self.node_id:
                 continue
-            send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_url"], message)
+            send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_name"], message)
 
     def send_message_to_one_node(self, node_id: int, message: str):
         node = self.sqs_info[node_id]
-        send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_url"], message)
+        send_sqs_message(self.sqs_resource, node["queue_url"], node["queue_name"], message)
 
     def check_timeout(self) -> bool:
         return time.time() >= self.timeout_time
 
     def reset_timeout(self) -> None:
-        self.timeout_time = time.time() + random.uniform(15, 25)
+        self.timeout_time = time.time() + random.uniform(15, 40)
 
     def isLeader(self):
         if (self.leader == True):
@@ -123,36 +128,63 @@ class Node:
 
     def send_heartbeats(self):
 
-        msg = {"type": "heartbeat", "node_id": self.node_index, "log": self.log, "term": self.term}
+        msg = {"type": "heartbeat", "node_id": self.node_id, "log": self.log, "term": self.term}
         self.send_message_to_all_other_nodes(json.dumps(msg))
 
     # {"type": "electionRequest", "node_id": 0, "log": []}
 
     def process_latest_message(self):
-
+        
         # Somehow build message list
-        message = json.loads(retrieve_sqs_messages(self.sqs_client, self.sqs_info[self.node_id]["queue_url"]))
+        raw_message = retrieve_sqs_messages(self.sqs_client, self.sqs_info[self.node_id]["queue_url"])
 
-        print(message)
+        if raw_message is None:
+            return
+        message = json.loads(raw_message)
+
+        print("Incoming message: " + raw_message)
 
         if message["type"] == "vote":
             self.votes += 1
             # if it's the majority (3) you win self.leader = true
 
         elif message["type"] == "heartbeat":
+
             if self.isCandidate():
                 if message["term"] >= self.term:
                     self.set_as_follower()
+                    self.reset_timeout()
+            else:
+                self.reset_timeout()
+
+            self.hasVoted = False
 
         elif message["type"] == "electionRequest":
-            vote_msg = {"type": "vote", "node_id": self.node_index, "log": self.log, "term": self.term}
-            self.send_message_to_one_node(message["node_id"], json.dumps(vote_msg))
-    
+
+            if self.hasVoted == False:
+                vote_msg = {"type": "vote", "node_id": self.node_id, "log": self.log, "term": self.term}
+
+                print("Outgoing message: " + json.dumps(vote_msg))
+                self.send_message_to_one_node(message["node_id"], json.dumps(vote_msg))
+                self.hasVoted = True 
+
+        elif message["type"] == "event":
+
+            if not self.isLeader():
+                return
+
+            entry = {"data": message["data"], "term": self.term}
+            self.log.append(entry)
+
+            msg = {"type": "AppendEvent", "node_id": self.node_id, "log": self.log, "term": self.term}
+
+            self.send_message_to_all_other_nodes(json.dumps(msg))
+
+
     def main_loop(self):
 
         while True:
-
-            time.sleep(1)
+            print("")
 
             # Check messages
             self.process_latest_message()
@@ -165,24 +197,30 @@ class Node:
 
                 self.reset_timeout()
                 self.set_as_candidate()
+                self.hasVoted = False
                 self.term += 1
                 self.votes = 1 # reset votes to just yourself
 
                 # send request for vote messages to all other nodes
+                msg = {"type": "electionRequest", "node_id": self.node_id, "log": self.log, "term": self.term}
+                self.send_message_to_all_other_nodes(json.dumps(msg))
+
 
             # Check if we've won election
             if self.isCandidate():
 
                 # Check for incoming votes
-                # votes += received_votes
                 if self.check_if_won():
+                    print("Won election!")
                     self.set_as_leader()
+                    print("Sending heartbeat after election")
                     self.send_heartbeats()
 
 
             if self.isLeader():
 
                 # Send heartbeat to other nodes
+                print("Sending heartbeat")
                 self.send_heartbeats()
 
             # If leader send hearbeat

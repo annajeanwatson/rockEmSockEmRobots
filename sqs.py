@@ -16,8 +16,7 @@ def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, vi
                                           MaxNumberOfMessages=num_msgs,
                                           WaitTimeSeconds=wait_time,
                                           VisibilityTimeout=visibility_time)
-        # print(msgs)
-        if msgs is not None:
+        if "Messages" in msgs:
             for msg in msgs["Messages"]:
 
                 # string message 
@@ -26,6 +25,8 @@ def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, vi
                 # Remove the message from the queue
                 delete_sqs_message(sqs_client, sqs_queue_url, msg['ReceiptHandle'])
                 return msg_json
+        return None
+        
 
     except ClientError as e:
         print(e)
@@ -46,7 +47,7 @@ def initListener(sqs_queue_url, dist_dict, CONFIG):
     sqs_client = boto3.client('sqs')
 
     while True:
-        time.sleep(2)
+        # time.sleep(2)
         # Retrieve SQS messages
         msgs = retrieve_sqs_messages(sqs_queue_url, sqs_client, num_messages)
         if msgs is not None:
@@ -84,3 +85,8 @@ def send_sqs_message(sqs_resource, sqs_queue_url, queue_name, msg_body):
         logging.error(e)
         return None
     return msg
+
+def purge_queues(sqs_client, queue_url):
+
+    response = sqs_client.purge_queue(QueueUrl=queue_url)
+    return response
