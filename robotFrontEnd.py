@@ -16,13 +16,13 @@ class RobotClient:
     def setIsBlockingWithLeft(self, boolean):
         self.isBlockingWithLeft = boolean
     
-    def getIsBlockingWithLeft(self, boolean):
+    def getIsBlockingWithLeft(self):
         return self.isBlockingWithLeft 
 
     def setIsBlockingWithRight(self, boolean):
         self.isBlockingWithRight = boolean
     
-    def getIsBlockingWithRight(self, boolean):
+    def getIsBlockingWithRight(self):
         return self.isBlockingWithRight
 
 def inputMenu():
@@ -41,34 +41,34 @@ def inputMenu():
 
         if user_input == "w":
             # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight == True:
-                robotClient.setIsBlockingWithRight == False
-            if robotClient.getIsBlockingWithLeft == True:
-                robotClient.setIsBlockingWithLeft == False
+            if robotClient.getIsBlockingWithRight() == True:
+                robotClient.setIsBlockingWithRight(False)
+            if robotClient.getIsBlockingWithLeft() == True:
+                robotClient.setIsBlockingWithLeft(False)
             msg_body = '{{"data": "punch_right", "client": {client_id}}}'.format(client_id=int(client_id))
             send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
 
         if user_input == "q":
             # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight == True:
-                robotClient.setIsBlockingWithRight == False
-            if robotClient.getIsBlockingWithLeft == True:
-                robotClient.setIsBlockingWithLeft == False
+            if robotClient.getIsBlockingWithRight() == True:
+                robotClient.setIsBlockingWithRight(False)
+            if robotClient.getIsBlockingWithLeft() == True:
+                robotClient.setIsBlockingWithLeft(False) 
             msg_body = '{{"data": "punch_left", "client": {client_id}}}'.format(client_id=int(client_id))
             send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
 
         if user_input == "a":
             # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight == True:
-                robotClient.setIsBlockingWithRight == False
+            if robotClient.getIsBlockingWithRight() == True:
+                robotClient.setIsBlockingWithRight(False)
             robotClient.setIsBlockingWithLeft(True)
             msg_body = '{{"data": "block_left", "client": {client_id}}}'.format(client_id=int(client_id))
             send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
         
         if user_input == "s":
             # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithLeft == True:
-                robotClient.setIsBlockingWithLeft == False
+            if robotClient.getIsBlockingWithLeft() == True:
+                robotClient.setIsBlockingWithLeft(False)
             robotClient.setIsBlockingWithRight(True)
             msg_body = '{{"data": "block_right", "client": {client_id}}}'.format(client_id=int(client_id))
             send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
