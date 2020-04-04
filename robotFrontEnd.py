@@ -6,6 +6,8 @@ from random import randint
 import logging
 from botocore.exceptions import ClientError
 import ast
+import sqs
+
 
 class RobotClient:
     def __init__(self, client_id):
@@ -146,8 +148,11 @@ if __name__ == "__main__":
         if client["id"] == client_id:
             sqs_queue_url = client["queue_url"]'''
     sqs_queue_url = CONFIG["clients"][client_id]["queue_url"]
+
     print(sqs_queue_url)
     sqs_client = boto3.client('sqs', region_name='us-east-2')
+
+    sqs.purge_queues(sqs_client, CONFIG["leader"]["queue_url"])
 
     # listening thread starting
     listenerThread = threading.Thread(target =retrieve_sqs_messages, args=(sqs_client, sqs_queue_url, 1, 1, 5))
