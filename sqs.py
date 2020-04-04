@@ -40,34 +40,33 @@ def delete_sqs_message(sqs_client, sqs_queue_url, msg_receipt_handle):
     sqs_client.delete_message(QueueUrl=sqs_queue_url,
                               ReceiptHandle=msg_receipt_handle)
 
-def initListener(sqs_queue_url, dist_dict, CONFIG):
+# def initListener(sqs_queue_url, dist_dict, CONFIG):
 
-    # Assign this value before running the program
-    num_messages = 1
-    sqs_client = boto3.client('sqs')
+#     # Assign this value before running the program
+#     num_messages = 1
+#     sqs_client = boto3.client('sqs')
 
-    while True:
-        # time.sleep(2)
-        # Retrieve SQS messages
-        msgs = retrieve_sqs_messages(sqs_queue_url, sqs_client, num_messages)
-        if msgs is not None:
-            for msg in msgs:
+#     while True:
+#         # time.sleep(2)
+#         # Retrieve SQS messages
+#         msgs = retrieve_sqs_messages(sqs_queue_url, sqs_client, num_messages)
+#         if msgs is not None:
+#             for msg in msgs:
 
-                msg_json = json.loads(msg["Body"])
+#                 msg_json = json.loads(msg["Body"])
 
-                dist_dict.receive(msg_json)
+#                 dist_dict.receive(msg_json)
 
-                # Remove the message from the queue
-                delete_sqs_message(sqs_queue_url, msg['ReceiptHandle'])
-                conflict_occured = dist_dict.fix_meeting_conflicts()
+#                 # Remove the message from the queue
+#                 delete_sqs_message(sqs_queue_url, msg['ReceiptHandle'])
+#                 conflict_occured = dist_dict.fix_meeting_conflicts()
 
-                if conflict_occured:
-                    # print("Conflict on receive, updating!")
-                    for node in CONFIG["nodes"]:
-                        if node["id"] != dist_dict.node_id:
-                            message = dist_dict.send(node["id"])
-                            send_sqs_message(node["queue_url"], node["queue_name"], json.dumps(message))
-
+#                 if conflict_occured:
+#                     # print("Conflict on receive, updating!")
+#                     for node in CONFIG["nodes"]:
+#                         if node["id"] != dist_dict.node_id:
+#                             message = dist_dict.send(node["id"])
+#                             send_sqs_message(node["queue_url"], node["queue_name"], json.dumps(message))
 
 
 def send_sqs_message(sqs_resource, sqs_queue_url, queue_name, msg_body):
