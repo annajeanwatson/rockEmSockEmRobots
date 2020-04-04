@@ -87,5 +87,8 @@ def send_sqs_message(sqs_resource, sqs_queue_url, queue_name, msg_body):
 
 def purge_queues(sqs_client, queue_url):
 
-    response = sqs_client.purge_queue(QueueUrl=queue_url)
-    return response
+    try:
+        response = sqs_client.purge_queue(QueueUrl=queue_url)
+        return response
+    except:
+        print("purge timeout...")
