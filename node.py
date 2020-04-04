@@ -13,17 +13,18 @@ from os import path
 # 2. Nodes need to use permanent storage
 
 class RaftNode:
-    def __init__(self, sqs_info, node_id, isCandidate = False, isLeader = False, isFollower = True):
-        # possible states
+    def __init__(self, sqs_config, node_id, isCandidate = False, isLeader = False, isFollower = True):
 
-        self.sqs_info = sqs_info
+        self.nodes_sqs_info = sqs_config["nodes"]
+        self.leader_sqs_info = sqs_config["leader"]
+        self.clients_sqs_info = sqs_config["clients"]
         self.node_id = node_id
 
         self.isLeader = isLeader
         self.isFollower = isFollower
         self.isCandidate = isCandidate
 
-        self.num_nodes = len(sqs_info)
+        self.num_nodes = len(self.nodes_sqs_info)
 
         self.stateFile = "state" + str(self.node_id) + ".json"
 
@@ -52,7 +53,7 @@ class RaftNode:
         self.sqs_client = boto3.client('sqs', region_name='us-east-2')
         self.sqs_resource = boto3.resource('sqs', region_name='us-east-2')
 
-        purge_queues(self.sqs_client, self.sqs_info[self.node_id]["queue_url"])
+        purge_queues(self.sqs_client, self.nodes_sqs_info[self.node_id]["queue_url"])
 
         # Setting self.timeout_time
         self.reset_timeout()
@@ -82,7 +83,7 @@ class RaftNode:
 
     def send_message_to_all_other_nodes(self, message: str) -> None:
 
-        for node_info in self.sqs_info:
+        for node_info in self.nodes_sqs_info:
             if node_info["id"] == self.node_id:
                 continue
             result = send_sqs_message(self.sqs_resource, node_info["queue_url"], node_info["queue_name"], message)
@@ -90,7 +91,7 @@ class RaftNode:
 
     def send_message_to_one_node(self, node_id: int, message: str) -> None:
 
-        node_info = self.sqs_info[node_id]
+        node_info = self.nodes_sqs_info[node_id]
         result = send_sqs_message(self.sqs_resource, node_info["queue_url"], node_info["queue_name"], message)
         #print(result)
 
@@ -176,7 +177,7 @@ class RaftNode:
 
     def process_latest_message(self):
         
-        raw_message = retrieve_sqs_messages(self.sqs_client, self.sqs_info[self.node_id]["queue_url"])
+        raw_message = retrieve_sqs_messages(self.sqs_client, self.nodes_sqs_info[self.node_id]["queue_url"])
 
         if raw_message is None:
             return
@@ -196,12 +197,18 @@ class RaftNode:
 
     def process_leader_message(self):
 
-        raw_message = retrieve_sqs_messages(self.sqs_client, self.sqs_info["leader"]["queue_url"])
+        raw_message = retrieve_sqs_messages(self.sqs_client, self.leader_sqs_info["queue_url"])
 
         if raw_message is None:
             return
 
         message = json.loads(raw_message)
+
+        if message["type"] == "AppendEntries":
+            if len(message["entries"]) == 0:
+                print("Incoming message: heartbeat")
+        else:
+            print("Incoming message: " + raw_message)
 
         entry = {"term": self.currentTerm, "index": len(self.log), "command": message}
 
@@ -236,7 +243,16 @@ class RaftNode:
 
     def main_loop(self):
 
+        counter = 0
+
         while True:
+
+            counter += 1
+
+            ## Debug printing
+            if counter % 10 == 0:
+                print(self.log)
+
             print("")
 
             # Check messages
@@ -267,7 +283,7 @@ class RaftNode:
                 # Send heartbeat to other nodes
                 print("Sending heartbeat")
                 self.send_heartbeats()
-                #self.process_leader_message()
+                self.process_leader_message()
 
  
 if __name__ == "__main__":
@@ -277,5 +293,5 @@ if __name__ == "__main__":
     with open('ec2_setup.json') as f:
         CONFIG = json.load(f)
 
-    myNode = RaftNode(CONFIG["nodes"], node_id)
+    myNode = RaftNode(CONFIG, node_id)
     myNode.main_loop()
