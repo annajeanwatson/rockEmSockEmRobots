@@ -6,12 +6,16 @@ from random import randint
 import logging
 from botocore.exceptions import ClientError
 import ast
+import time
 
 class RobotClient:
     def __init__(self, client_id):
         self.client_id =  client_id
         self.isBlockingWithLeft = False
         self.isBlockingWithRight = False
+
+        self.otherRobotBlockLeft = False
+        self.otherRobotBlockRight = False
 
     def setIsBlockingWithLeft(self, boolean):
         self.isBlockingWithLeft = boolean
@@ -24,6 +28,19 @@ class RobotClient:
     
     def getIsBlockingWithRight(self):
         return self.isBlockingWithRight
+
+    def setOtherRobotBlockLeft(self, boolean):
+        self.otherRobotBlockLeft = boolean
+
+    def getOtherRobotBlockLeft(self):
+        return self.otherRobotBlockLeft
+
+    def setOtherRobotBlockRight(self, boolean):
+        self.otherRobotBlockRight = boolean
+
+    def getOtherRobotBlockRight(self):
+        return self.otherRobotBlockRight
+    
 
 def inputMenu():
 
@@ -45,8 +62,13 @@ def inputMenu():
                 robotClient.setIsBlockingWithRight(False)
             if robotClient.getIsBlockingWithLeft() == True:
                 robotClient.setIsBlockingWithLeft(False)
-            msg_body = '{{"data": "punch_right", "client": {client_id}}}'.format(client_id=int(client_id))
-            send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
+            if robotClient.getOtherRobotBlockLeft() == True:
+                timeOut()
+            if robotClient.getOtherRobotBlockLeft() == False:
+                msg_body = '{{"data": "punch_right", "client": {client_id}}}'.format(client_id=int(client_id))
+                send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
+            # can only punch once every second 
+                time.sleep(1)
 
         if user_input == "q":
             # robots can only be blocking until their next move
@@ -54,8 +76,13 @@ def inputMenu():
                 robotClient.setIsBlockingWithRight(False)
             if robotClient.getIsBlockingWithLeft() == True:
                 robotClient.setIsBlockingWithLeft(False) 
-            msg_body = '{{"data": "punch_left", "client": {client_id}}}'.format(client_id=int(client_id))
-            send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
+            if robotClient.getOtherRobotBlockRight() == True:
+                timeOut()
+            if robotClient.getOtherRobotBlockRight() == False:
+                msg_body = '{{"data": "punch_left", "client": {client_id}}}'.format(client_id=int(client_id))
+                send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
+            # can only punch once every second
+                time.sleep(1)
 
         if user_input == "a":
             # robots can only be blocking until their next move
@@ -125,13 +152,31 @@ def purge_queues(sqs_client, queue_url):
 
 def handle_recieve(dicti):
     if dicti["data"] == "block_left" and dicti["client"] != client_id:
-        print('yay')
+        # means the other robot has blocked 
+        robotClient.setOtherRobotBlockLeft(True)
     elif dicti["data"] == "block_right" and dicti["client"] != client_id:
-        pass
+        # means the other robot has blocked
+        robotClient.setOtherRobotBlockRight(True)
     elif dicti["data"] == "punch_left" and dicti["client"] != client_id:
-        pass
+        # robot has a 10% chance of landing a punch
+        chanceOfGettingHit = randint(1,10)
+        # and is not blocking 
+        if chanceOfGettingHit == 5 and robotClient.getIsBlockingWithRight() == False:
+            sucessfulPunch()
     elif dicti["data"] == "punch_right" and dicti["client"] != client_id:
-        pass
+        # robot has a 10% chance of landing a punch
+        chanceOfGettingHit = randint(1,10)
+        # and is not blocking
+        if chanceOfGettingHit == 5 and robotClient.getIsBlockingWithLeft() == False:
+            sucessfulPunch()
+    #elif dicti["data"] == "has_been_blocked" and dicti["client"] != client_id:
+    #    timeOut()
+
+def sucessfulPunch():
+    print('{{GAME OVER ROBOT {client_id} LOSES!!!}}'.format(client_id))
+
+def timeOut():
+    time.sleep(3)
 
 if __name__ == "__main__":
 
