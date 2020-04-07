@@ -169,7 +169,6 @@ class RaftNode:
 
                 failMsg = {"type": "AppendAck", "status": "FAIL", "lastLogIndex": self.lastLogIndex, "node_id": self.node_id}
                 print("Outgoing message: " + json.dumps(failMsg))
-                print(self.lastLogIndex)
                 self.send_message_to_one_node(message["node_id"], json.dumps(failMsg))
 
     def process_AppendAck_message(self, message):
@@ -220,7 +219,6 @@ class RaftNode:
 
             print("Sending to client: " + message)
 
-            print(client_info)
             result = send_sqs_message(self.sqs_resource, client_info["queue_url"], client_info["queue_name"], message)
 
 

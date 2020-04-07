@@ -124,16 +124,16 @@ class RobotClient:
 
             elif command["client_id"] == self.client_id and command["state"] is not None:
 
-                if opponent_state == "br":
+                if command["state"] == "br":
                     print("You blocked with right!")
 
-                if opponent_state == "bl":
+                if command["state"] == "bl":
                     print("You blocked with left!")
 
-                if opponent_state == "pr":
+                if command["state"] == "pr":
                     print("You punched with right!")
 
-                if opponent_state == "pl":
+                if command["state"] == "pl":
                     print("You punched with left!")
 
 
