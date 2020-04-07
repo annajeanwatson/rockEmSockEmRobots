@@ -5,7 +5,7 @@ import time
 import json
 from random import randint
 
-def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, visibility_time=5):
+def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=0, visibility_time=1):
 
     # Assign this value before running the program
     num_messages = 1
@@ -16,16 +16,16 @@ def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, vi
                                           MaxNumberOfMessages=num_msgs,
                                           WaitTimeSeconds=wait_time,
                                           VisibilityTimeout=visibility_time)
-        if "Messages" in msgs:
-            for msg in msgs["Messages"]:
+        if "Messages" not in msgs:
+            return None
 
-                # string message 
-                msg_json = msg["Body"]
+        # string message 
+        msg = msgs["Messages"][0]
 
-                # Remove the message from the queue
-                delete_sqs_message(sqs_client, sqs_queue_url, msg['ReceiptHandle'])
-                return msg_json
-        return None
+        # Remove the message from the queue
+        sqs_client.delete_message(QueueUrl=sqs_queue_url,
+                                ReceiptHandle=msg['ReceiptHandle'])
+        return msg["Body"]
         
 
     except ClientError as e:
@@ -33,12 +33,6 @@ def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, vi
         logging.error(e)
         return None
 
-
-def delete_sqs_message(sqs_client, sqs_queue_url, msg_receipt_handle):
-
-    # Delete the message from the SQS queue
-    sqs_client.delete_message(QueueUrl=sqs_queue_url,
-                              ReceiptHandle=msg_receipt_handle)
 
 # def initListener(sqs_queue_url, dist_dict, CONFIG):
 

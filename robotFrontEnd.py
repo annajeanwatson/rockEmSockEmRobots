@@ -2,56 +2,138 @@ import json
 import sys
 import threading
 import boto3
-from random import randint
+import random
 import logging
 from botocore.exceptions import ClientError
-import ast
 import time
-import sqs
-
+from sqs import *
 
 class RobotClient:
-    def __init__(self, client_id):
-        self.client_id =  client_id
-        self.isBlockingWithLeft = False
-        self.isBlockingWithRight = False
 
-        self.otherRobotBlockLeft = False
-        self.otherRobotBlockRight = False
+    def __init__(self, client_id, sqs_info):
 
-    def setIsBlockingWithLeft(self, boolean):
-        self.isBlockingWithLeft = boolean
-    
-    def getIsBlockingWithLeft(self):
-        return self.isBlockingWithLeft 
+        self.client_id = client_id
+        self.sqs_info = sqs_info
 
-    def setIsBlockingWithRight(self, boolean):
-        self.isBlockingWithRight = boolean
-    
-    def getIsBlockingWithRight(self):
-        return self.isBlockingWithRight
+        # Can be "bl", "br", "pl", "pr"
+        self.state = None
 
-    def setOtherRobotBlockLeft(self, boolean):
-        self.otherRobotBlockLeft = boolean
+        self.sqs_client = boto3.client('sqs', region_name='us-east-2')
+        self.sqs_resource = boto3.resource('sqs', region_name='us-east-2')
 
-    def getOtherRobotBlockLeft(self):
-        return self.otherRobotBlockLeft
+        self.punch_timeout_time = time.time()
 
-    def setOtherRobotBlockRight(self, boolean):
-        self.otherRobotBlockRight = boolean
+        purge_queues(self.sqs_client, self.sqs_info["clients"][self.client_id]["queue_url"])
 
-    def getOtherRobotBlockRight(self):
-        return self.otherRobotBlockRight
-    
+    def reset_punch_timeout(self, seconds):
 
-def inputMenu():
+        self.punch_timeout_time = time.time() + seconds
+
+    def check_punch_timeout(self):
+
+        return time.time() < self.punch_timeout_time
+
+    def punch_with_left(self):
+
+        if self.check_punch_timeout():
+            print("Can only punch once per second or three seconds after being blocked!")
+            return False
+
+        self.state = "pl"
+        self.reset_punch_timeout(1)
+        return True
+
+    def punch_with_right(self):
+
+        if self.check_punch_timeout():
+            print("Can only punch once per second or three seconds after being blocked!")
+            return False
+
+        self.state = "pr"
+        self.reset_punch_timeout(1)
+        return True
+
+    def block_with_left(self):
+
+        self.state = "bl"
+        return True
+
+    def block_with_right(self):
+
+        self.state = "br"
+        return True
+
+
+    def process_opponent_action(self, opponent_state):
+
+        if opponent_state == "br":
+            print("Opponent blocked with right!")
+            return False
+
+        if opponent_state == "bl":
+            print("Opponent blocked with left!")
+            return False
+
+        if opponent_state == "pr" and self.state == "bl":
+
+            print("Opponent threw a right punch, but it was blocked!")
+            return False
+
+        if opponent_state == "pl" and self.state == "br":
+
+            print("Opponent threw a left punch, but it was blocked!")
+            return False
+
+        # Successful punch, return hit with prob
+        isHit = random.random() < .1
+
+        if isHit:
+            print("Opponent threw a punch and it landed! GAME OVER!")
+        else:
+            print("Opponent threw a punch and but it missed!")
+
+        return isHit
+
+    # TODO: need to implement logic that times out punching for three seconds after being blocked
+
+    def listen_for_messages(self):
+
+        while True:
+
+            raw_message = retrieve_sqs_messages(self.sqs_client, self.sqs_info["clients"][self.client_id]["queue_url"])
+
+            if raw_message is None:
+                continue
+
+            print("Incoming: " + raw_message)
+            message = json.loads(raw_message)
+
+            if message["type"] != "commitConfirm":
+                print("ERRROR what type of message is this?")
+                return
+
+            command = message["command"]
+
+            # Process opponent state
+            if command["client_id"] != self.client_id and command["state"] is not None:
+                self.process_opponent_action(command["state"])
+
+
+    def send_state_to_leader(self):
+
+        msg_json = {"type": "Action", "state": self.state, "client_id": self.client_id}
+
+        print("Outgoing: " + json.dumps(msg_json))
+        send_sqs_message(self.sqs_resource, self.sqs_info["leader"]["queue_url"], self.sqs_info["leader"]["queue_name"], json.dumps(msg_json))
+
+def inputMenu(robotClient):
 
     while True:
 
         print("")
         print("Please select from the following menu:")
-        print("w. Right Punch") 
         print("q. Left Punch") 
+        print("w. Right Punch") 
         print("a. Block Left")
         print("s. Block Right")
         print("")
@@ -59,180 +141,37 @@ def inputMenu():
         user_input = input()
 
         if user_input == "w":
-            # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight() == True:
-                robotClient.setIsBlockingWithRight(False)
-            if robotClient.getIsBlockingWithLeft() == True:
-                robotClient.setIsBlockingWithLeft(False)
-            if robotClient.getOtherRobotBlockLeft() == True:
-                timeOut()
-            if robotClient.getOtherRobotBlockLeft() == False:
-                msg_body = '{{"data": "punch_right", "client": {client_id}}}'.format(client_id=int(client_id))
-                send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
-            # can only punch once every second 
-                time.sleep(1)
+
+            actionSuccessful = robotClient.punch_with_right()
+            if not actionSuccessful:
+                continue
 
         if user_input == "q":
-            # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight() == True:
-                robotClient.setIsBlockingWithRight(False)
-            if robotClient.getIsBlockingWithLeft() == True:
-                robotClient.setIsBlockingWithLeft(False) 
-            if robotClient.getOtherRobotBlockRight() == True:
-                timeOut()
-            if robotClient.getOtherRobotBlockRight() == False:
-                msg_body = '{{"data": "punch_left", "client": {client_id}}}'.format(client_id=int(client_id))
-                send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
-            # can only punch once every second
-                time.sleep(1)
+
+            actionSuccessful = robotClient.punch_with_left()
+            if not actionSuccessful:
+                continue
 
         if user_input == "a":
-            # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithRight() == True:
-                robotClient.setIsBlockingWithRight(False)
-            robotClient.setIsBlockingWithLeft(True)
-            msg_body = '{{"data": "block_left", "client": {client_id}}}'.format(client_id=int(client_id))
-            send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
+            robotClient.block_with_left()
         
         if user_input == "s":
-            # robots can only be blocking until their next move
-            if robotClient.getIsBlockingWithLeft() == True:
-                robotClient.setIsBlockingWithLeft(False)
-            robotClient.setIsBlockingWithRight(True)
-            msg_body = '{{"data": "block_right", "client": {client_id}}}'.format(client_id=int(client_id))
-            send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
-            
+            robotClient.block_with_right()
 
-def retrieve_sqs_messages(sqs_client, sqs_queue_url, num_msgs=1, wait_time=1, visibility_time=5):
-    # Assign this value before running the program
-    num_messages = 1
-    while True:
-        # Retrieve messages from an SQS queue
-        msgs = sqs_client.receive_message(QueueUrl=sqs_queue_url,
-                                              MaxNumberOfMessages=num_msgs,
-                                              WaitTimeSeconds=wait_time,
-                                              VisibilityTimeout=visibility_time)
-        if "Messages" in msgs:
-            for msg in msgs["Messages"]:
-
-                # string message 
-                msg_json = msg["Body"]
-                # covert body of message to a dictionary
-                D2=ast.literal_eval(msg_json)
-                handle_recieve(D2)
-                 # Remove the message from the queue
-                delete_sqs_message(sqs_client, sqs_queue_url, msg['ReceiptHandle'])
-
-                    
-
-def delete_sqs_message(sqs_client, sqs_queue_url, msg_receipt_handle):
-
-    # Delete the message from the SQS queue
-    sqs_client.delete_message(QueueUrl=sqs_queue_url,
-                              ReceiptHandle=msg_receipt_handle)
-
-def send_sqs_message(sqs_resource, sqs_queue_url, queue_name, msg_body):
-
-    # Send the SQS message
-    queue = sqs_resource.get_queue_by_name(QueueName=queue_name)
-    try:
-        dedup_id = str(randint(0,1e10))
-        msg = queue.send_message(QueueUrl=sqs_queue_url,
-                                      MessageBody=msg_body, MessageGroupId='string', MessageDeduplicationId=dedup_id)
-
-    except ClientError as e:
-        print("ERROR yo!")
-        print(e)
-        logging.error(e)
-        return None
-    return msg
-
-def purge_queues(sqs_client, queue_url):
-
-    response = sqs_client.purge_queue(QueueUrl=queue_url)
-    return response
-
-def handle_recieve(dicti):
-    if dicti["data"] == "block_left" and dicti["client"] != client_id:
-        # means the other robot has blocked 
-        robotClient.setOtherRobotBlockLeft(True)
-    elif dicti["data"] == "block_right" and dicti["client"] != client_id:
-        # means the other robot has blocked
-        robotClient.setOtherRobotBlockRight(True)
-    elif dicti["data"] == "punch_left" and dicti["client"] != client_id:
-        # robot has a 10% chance of landing a punch
-        chanceOfGettingHit = randint(1,10)
-        # and is not blocking 
-        if chanceOfGettingHit == 5 and robotClient.getIsBlockingWithRight() == False:
-            sucessfulPunch()
-    elif dicti["data"] == "punch_right" and dicti["client"] != client_id:
-        # robot has a 10% chance of landing a punch
-        chanceOfGettingHit = randint(1,10)
-        # and is not blocking
-        if chanceOfGettingHit == 5 and robotClient.getIsBlockingWithLeft() == False:
-            sucessfulPunch()
-    #elif dicti["data"] == "has_been_blocked" and dicti["client"] != client_id:
-    #    timeOut()
-
-def sucessfulPunch():
-    print('{{GAME OVER ROBOT {client_id} LOSES!!!}}'.format(client_id))
-
-def timeOut():
-    time.sleep(3)
+        robotClient.send_state_to_leader()
 
 if __name__ == "__main__":
-
 
     client_id = int(sys.argv[1])
 
     with open('ec2_setup.json') as f:
         CONFIG = json.load(f)
 
-    # recieveing     
-    '''  for client in CONFIG["clients"]:
-        if client["id"] == client_id:
-            sqs_queue_url = client["queue_url"]'''
-    sqs_queue_url = CONFIG["clients"][client_id]["queue_url"]
-
-    print(sqs_queue_url)
-    sqs_client = boto3.client('sqs', region_name='us-east-2')
-
-    sqs.purge_queues(sqs_client, CONFIG["leader"]["queue_url"])
+    robotClient = RobotClient(client_id, CONFIG)
 
     # listening thread starting
-    listenerThread = threading.Thread(target =retrieve_sqs_messages, args=(sqs_client, sqs_queue_url, 1, 1, 5))
+    listenerThread = threading.Thread(target = robotClient.listen_for_messages)
     listenerThread.start()
 
-    # sending 
-    sqs_resource = boto3.resource('sqs', region_name='us-east-2')
-    leader_queue_url = CONFIG["leader"]["queue_url"]
-    leader_queue_name = CONFIG["leader"]["queue_name"]
-    #my_queue = CONFIG["clients"][client_id]
-
-    #msg_body = '{"data": "block_left", "client": 0}'
-
-    #send_sqs_message(sqs_resource, leader_queue_url, leader_queue_name, msg_body)
-
-    # create a robot client to store data 
-    robotClient = RobotClient(client_id)
-
     # run main loop
-    inputMenu()
-
-
-
-
-
-
-    # my_queue["queue_url"]
-    # my_queue["queue_name"]
-
-    # leader_queue["queue_url"]
-    # leader_queue["queue_name"]
-
-    # {"data": "block_left", "client": 0}
-
-
-
-    #inputMenu()
-
+    inputMenu(robotClient)
