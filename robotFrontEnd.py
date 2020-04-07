@@ -17,6 +17,7 @@ class RobotClient:
 
         # Can be "bl", "br", "pl", "pr"
         self.state = None
+        self.opponent_state = None
 
         self.sqs_client = boto3.client('sqs', region_name='us-east-2')
         self.sqs_resource = boto3.resource('sqs', region_name='us-east-2')
@@ -65,6 +66,8 @@ class RobotClient:
 
 
     def process_opponent_action(self, opponent_state):
+
+        self.opponent_state == opponent_state
 
         if opponent_state == "br":
             print("Opponent blocked with right!")
@@ -116,7 +119,9 @@ class RobotClient:
 
             # Process opponent state
             if command["client_id"] != self.client_id and command["state"] is not None:
-                self.process_opponent_action(command["state"])
+
+                isHit = self.process_opponent_action(command["state"])
+
 
 
     def send_state_to_leader(self):
@@ -146,17 +151,20 @@ def inputMenu(robotClient):
             if not actionSuccessful:
                 continue
 
-        if user_input == "q":
+        elif user_input == "q":
 
             actionSuccessful = robotClient.punch_with_left()
             if not actionSuccessful:
                 continue
 
-        if user_input == "a":
+        elif user_input == "a":
             robotClient.block_with_left()
         
-        if user_input == "s":
+        elif user_input == "s":
             robotClient.block_with_right()
+
+        else:
+            continue
 
         robotClient.send_state_to_leader()
 

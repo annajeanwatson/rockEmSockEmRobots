@@ -9,15 +9,6 @@ import json
 from os import path
 import threading
 
-# TODO:
-# 2. Punches stopped for three seconds after a succesful block
-# 6. Node can recover log after it fails and misses some events
-# I think done...
-# ----1. Nodes need to use permanent storage
-# 3. Communication and server between them can fail???
-# 4. Server maintain game state???
-# 5. fail(), recover(), and timeout()
-
 class RaftNode:
     def __init__(self, sqs_config, node_id, isCandidate = False, isLeader = False, isFollower = True):
 
@@ -34,6 +25,7 @@ class RaftNode:
 
         self.stateFile = "state" + str(self.node_id) + ".json"
 
+
         # Need to write these to persistent storage before responding to any message
         if path.exists(self.stateFile):
             with open(self.stateFile) as f:
@@ -42,17 +34,18 @@ class RaftNode:
             self.currentTerm = state["currentTerm"]
             self.votedFor = state["votedFor"]
             self.log = state["log"]
+            self.lastLogIndex = len(self.log)
         else:
             self.currentTerm = 0
             self.votedFor = None 
             self.log = []
+            self.lastLogIndex = 0
 
         self.votes = 0
 
         self.log_acks = {}
 
         # TODO: get this being used
-        self.lastLogIndex = 0
         self.lastLogTerm = 0
         self.commitIndex = -1
         self.nextIndex = self.lastLogIndex + 1
@@ -123,8 +116,8 @@ class RaftNode:
         msg = {"type": "AppendEntries",
                "term": self.currentTerm,
                "node_id": self.node_id, 
-               "prevLogIndex": None, 
-               "prevLogTerm": None, 
+               "prevLogIndex": self.lastLogIndex, 
+               "prevLogTerm": self.lastLogTerm, 
                "entries": [],
                "commitIndex": self.commitIndex
               }
@@ -151,29 +144,10 @@ class RaftNode:
 
         self.reset_timeout()
 
+
         if len(message["entries"]) > 0:
 
             print("adding entries to log...")
-
-            # 5.Return failure if log doesn’t contain an entry
-            #   at prevLogIndex whose term matches prevLogTerm
-
-            # if len(self.log) < message["prevLogIndex"]:
-            #     # Fail and send fail ack
-            #     print("first fail")
-            #     failMsg = {"type": "AppendAck", "status": "FAIL"}
-            #     return
-
-            # elif self.log[message["prevLogIndex"]]["term"] != message["prevLogTerm"]:
-            #     # Fail and send fail ack
-            #     print("second fail")
-            #     return
-
-            # 6.If existing entries conflict with new entries,
-            #   delete all existing entries starting with first
-            #   conflicting entry
-
-            # 7.Append any new entries not already in the log
 
             successful_entries = []
 
@@ -181,14 +155,22 @@ class RaftNode:
                 if len(self.log) == entry["index"]:
                     self.log.append(entry)
                     successful_entries.append(entry["index"])
+                    self.lastLogIndex += 1
+                    self.lastLogTerm = entry["term"]
                 else:
                     print("Adding entry to wrong index!!!!!!!!!!")
 
-            successMsg = {"type": "AppendAck", "status": "SUCCESS", "successful_entries": successful_entries}
-
-            # 8.Advance state machine with newly committed entries
+            successMsg = {"type": "AppendAck", "status": "SUCCESS", "successful_entries": successful_entries, "node_id": self.node_id}
 
             self.send_message_to_one_node(message["node_id"], json.dumps(successMsg))
+
+        else:
+            if message["prevLogIndex"] > self.lastLogIndex:
+
+                failMsg = {"type": "AppendAck", "status": "FAIL", "lastLogIndex": self.lastLogIndex, "node_id": self.node_id}
+                print("Outgoing message: " + json.dumps(failMsg))
+                print(self.lastLogIndex)
+                self.send_message_to_one_node(message["node_id"], json.dumps(failMsg))
 
     def process_AppendAck_message(self, message):
 
@@ -209,9 +191,27 @@ class RaftNode:
 
                             self.commitIndex = max(self.commitIndex, entry_index)
 
-                            message = {"type": "commitConfirm", "command": self.log[entry_index]["command"]}
+                            commitMsg = {"type": "commitConfirm", "command": self.log[entry_index]["command"]}
 
-                            self.send_reply_to_clients(json.dumps(message))
+                            self.send_reply_to_clients(json.dumps(commitMsg))
+
+        if message["status"] == "FAIL":
+            missed_entries = self.log[message["lastLogIndex"]:]
+            for entry in missed_entries:
+
+                appendMsg = {"type": "AppendEntries",
+                    "term": self.currentTerm,
+                    "node_id": self.node_id, 
+                    "prevLogIndex": self.lastLogIndex,
+                    "prevLogTerm": self.lastLogTerm,
+                    "entries": [entry],
+                    "commitIndex": self.commitIndex
+                    }
+
+                print("Outgoing message: " + json.dumps(appendMsg))
+                self.send_message_to_one_node(message["node_id"], json.dumps(appendMsg))
+
+
 
 
     def send_reply_to_clients(self, message):
@@ -335,14 +335,6 @@ class RaftNode:
 
             counter += 1
 
-            ## Debug printing
-            # if counter % 10 == 0:
-            #     print("Log and acks:")
-            #     print(self.log)
-            #     print(self.log_acks)
-
-            # print("")
-
             # Check messages
             self.process_latest_message()
 
@@ -369,8 +361,9 @@ class RaftNode:
             if self.isLeader == True:
 
                 # Send heartbeat to other nodes
-                # print("Sending heartbeat")
-                self.send_heartbeats()
+                if counter % 10 == 0:
+                    print("Sending heartbeat")
+                    self.send_heartbeats()
                 self.process_leader_message()
 
     def server_ui(self):
@@ -382,6 +375,7 @@ class RaftNode:
             print("1. Print Log") 
             print("2. Timeout Node") 
             print("3. Debug Node State") 
+
             print("")
 
             user_input = input()
@@ -390,7 +384,8 @@ class RaftNode:
             if user_input == "1":
 
                 print("Log:")
-                print(self.Log)
+                print(self.log)
+                time.sleep(2)
 
             if user_input == "2":
 
@@ -402,8 +397,12 @@ class RaftNode:
             if user_input == "3":
                 print("Log:")
                 print(self.log)
+                print("Log_acks:")
                 print(self.log_acks)
-                print(self.commitIndex)
+                print("commitIndex: " + str(self.commitIndex))
+                print("lastLogIndex: " + str(self.lastLogIndex))
+                time.sleep(2)
+
 
 
  
