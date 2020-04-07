@@ -122,6 +122,20 @@ class RobotClient:
 
                 isHit = self.process_opponent_action(command["state"])
 
+            elif command["client_id"] == self.client_id and command["state"] is not None:
+
+                if opponent_state == "br":
+                    print("You blocked with right!")
+
+                if opponent_state == "bl":
+                    print("You blocked with left!")
+
+                if opponent_state == "pr":
+                    print("You punched with right!")
+
+                if opponent_state == "pl":
+                    print("You punched with left!")
+
 
 
     def send_state_to_leader(self):
