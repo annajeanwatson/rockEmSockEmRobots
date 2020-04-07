@@ -10,12 +10,13 @@ from os import path
 import threading
 
 # TODO:
-# ----1. Nodes need to use permanent storage
 # 2. Punches stopped for three seconds after a succesful block
+# 6. Node can recover log after it fails and misses some events
+# I think done...
+# ----1. Nodes need to use permanent storage
 # 3. Communication and server between them can fail???
 # 4. Server maintain game state???
 # 5. fail(), recover(), and timeout()
-# 6. Node can recover log after it fails and misses some events
 
 class RaftNode:
     def __init__(self, sqs_config, node_id, isCandidate = False, isLeader = False, isFollower = True):
