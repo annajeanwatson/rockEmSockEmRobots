@@ -1,8 +1,4 @@
 
-# Requirements:
-
-https://docs.google.com/document/d/e/2PACX-1vRJFJ7UjEs_6elTgSAySg71z08Be3kk52MaHLQrxL-RcwXAtzbL0S1f_ajyRZFLJX0xMfYAI_PVynao/pub
-
 # Introduction
 In this assignment you will continue to hone your distributed systems development skills. You will implement a distributed consensus protocol and use it as a building block for a distributed application.
 
