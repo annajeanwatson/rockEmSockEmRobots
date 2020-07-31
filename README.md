@@ -40,27 +40,3 @@ You will use these operations to demonstrate the robustness of your Raft impleme
 You must implement a system with five server nodes. Each node will be run on a different machine. The log should be written to permanent storage, so that it will survive node crashes. You need to provide, at least, a minimal user interface (UI) for players to take actions. A text-based UI is fine. The contents of the log must also be viewable, for example by reading a file, so long as the file is human readable.
 
 You will deploy your project on Amazon EC2, on five machines in different regions. You will use micro-instances. You should sign up for AWS Educate to get your $35 credit for use of Amazon’s cloud infrastructure. This should be enough for you to deploy and demo the project. You should not do your development in AWS, but push your code from a repository (GitHub, BitBucket) to your AWS instances to test and demo. Please be careful to use a private repository, or otherwise protect private keys so that your AWS accounts are not hacked.
-
-# Grading
-Your grade will be based on a screencast that demonstrates the functionality of your code. I expect the demonstration to show the different types of events that players may take. You also need to demonstrate the correct operation of your Raft implementation through server crashes and timeouts. I will be looking for functionality and correctness of your mechanisms.
-
-Specifically, you will be graded according to the following rubric:
-
-12 points - Raft
-2 - nodes can elect a leader after system start
-1 - nodes can re-elect a leader after leader fail
-1 - node can become leader after it times out
-2 - leader can add events to its log
-1 - log event structure is correct
-2 - leader replicates log
-2 - events in log are correctly marked as committed
-1 - a node can recover its log after it fails and misses some events
-
-6 points - Rock 'Em Sock 'Em
-1 - robots can punch - action written onto the log
-2 - robots can block - action written onto the log and removed after another action
-3 - robots head knocked off after successful hit - action taken correctly (describe how your program makes the decision)
-
-2 points - AWS
-1 - implemented on different AWS nodes (or another cloud service)
-1 - nodes use permanent storage
