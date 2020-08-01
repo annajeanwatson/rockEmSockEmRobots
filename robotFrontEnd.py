@@ -87,7 +87,7 @@ class RobotClient:
             print("Opponent threw a left punch, but it was blocked!")
             return False
 
-        # Successful punch, return hit with prob
+        # Successful punch
         isHit = random.random() < .1
 
         if isHit:
@@ -97,7 +97,6 @@ class RobotClient:
 
         return isHit
 
-    # TODO: need to implement logic that times out punching for three seconds after being blocked
 
     def listen_for_messages(self):
 

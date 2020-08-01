@@ -45,7 +45,6 @@ class RaftNode:
 
         self.log_acks = {}
 
-        # TODO: get this being used
         self.lastLogTerm = 0
         self.commitIndex = -1
         self.nextIndex = self.lastLogIndex + 1
@@ -59,7 +58,6 @@ class RaftNode:
         # Setting self.timeout_time
         self.reset_timeout()
 
-    # TODO: make sure this works
     def write_state_to_disk(self):
 
         state = {"currentTerm": self.currentTerm, "votedFor": self.votedFor, "log": self.log}
@@ -89,14 +87,12 @@ class RaftNode:
             if node_info["id"] == self.node_id:
                 continue
             result = send_sqs_message(self.sqs_resource, node_info["queue_url"], node_info["queue_name"], message)
-            #print(result)
 
     def send_message_to_one_node(self, node_id: int, message: str) -> None:
 
         self.write_state_to_disk()
         node_info = self.nodes_sqs_info[node_id]
         result = send_sqs_message(self.sqs_resource, node_info["queue_url"], node_info["queue_name"], message)
-        #print(result)
 
     def check_timeout(self) -> bool:
         return time.time() >= self.timeout_time
@@ -183,7 +179,6 @@ class RaftNode:
 
                     if self.log_acks[entry_index] / self.num_nodes > 0.5:
 
-                        # This doesn't seem right, because it needs to be in order !!!!!!!!!!
                         if entry_index == self.commitIndex + 1:
 
                             print("commiting entry: " + str(entry_index))
@@ -237,7 +232,6 @@ class RaftNode:
                 self.votedFor = None
 
         if message["term"] >= self.currentTerm or (self.votedFor is None or self.votedFor == message["node_id"]):# and candidate's log is at least as complete as local log
-        # if self.votedFor is None or self.votedFor == message["node_id"]:# and candidate's log is at least as complete as local log
 
             self.votedFor = message["node_id"]
             vote_msg = {"type": "Vote", "node_id": self.node_id, "term": self.currentTerm}
@@ -412,9 +406,6 @@ if __name__ == "__main__":
         CONFIG = json.load(f)
 
     myNode = RaftNode(CONFIG, node_id)
-
-    # listenerThread = threading.Thread(target = myNode.process_latest_message)
-    # listenerThread.start()
 
     listenerThread = threading.Thread(target = myNode.main_loop)
     listenerThread.start()

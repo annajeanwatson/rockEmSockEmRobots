@@ -3,45 +3,45 @@
         {
             "id": 0,
             "queue_name": "ec21.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/ec21.fifo"
+            "queue_url": "URL here"
         },
         {
             "id": 1,
             "queue_name": "ec22.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/ec22.fifo"
+            "queue_url": "URL here"
         },
         {
             "id": 2,
             "queue_name": "ec23.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/ec23.fifo"	
+            "queue_url": "URL here"	
         },
         {
             "queue_name": "ec24.fifo",
             "id": 3,
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/ec24.fifo"	
+            "queue_url": "URL here"	
         },
         {
             "queue_name": "ec25.fifo",
             "id": 4,
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/ec25.fifo"	
+            "queue_url": "URL here"	
         }
     ],
     "leader": {
             "queue_name": "leader.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/leader.fifo"
+            "queue_url": "URL here"
 
     },
     "clients": [
         {
             "id": 0,
             "queue_name": "client0.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/client0.fifo"
+            "queue_url": "URL here"
 
         },
         {
             "id": 1,
             "queue_name": "client1.fifo",
-            "queue_url": "https://sqs.us-east-2.amazonaws.com/630265412085/client1.fifo"
+            "queue_url": "URL here"
 
         }
     ]
