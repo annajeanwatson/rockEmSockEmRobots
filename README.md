@@ -1,19 +1,14 @@
 
-# Introduction
-In this assignment you will continue to hone your distributed systems development skills. You will implement a distributed consensus protocol and use it as a building block for a distributed application.
-
-# Assignment
-Your task is to implement the Raft distributed consensus protocol and then use it to implement a distributed version of Rock ‘Em Sock ‘Em robots. Note that although there are many Raft implementations available on the internet, you will need to implement yours from scratch - undue similarity to publicly available code will be seen as plagiarism.
 
 # Rock ‘Em Sock ‘Em Robots
 From Wikipedia we learn: “Rock 'Em Sock 'Em Robots is a two-player action toy and game. It features two dueling robot boxers, Red Rocker and Blue Bomber, mechanically manipulated by the players, and the game is won when one player knocks the head off of the opponent.” You can see a lifesize version of the game in action here!
 
 Your distributed program should allow human players on two different computers as either Red Rocker and Blue Bomber. Each robot can be directed to perform the following actions (slightly modified from the original game):
 
-punch_with_left() [Q]
-punch_with_right() [W]
-block_with_left() [A]
-block_with_right() [S]
+# punch_with_left() [Q]
+# punch_with_right() [W]
+# block_with_left() [A]
+# block_with_right() [S]
 When a robot blocks, it enters a blocking_with_left, or blocking_with_right state, which persists until another action is taken. When blocking_with_left opponent’s punches with the right are blocked. Analogously for blocking_with_right, punches with opponent’s left are blocked.
 
 When punching an opponent who is not blocking, a robot has 10% chance of landing a hit. If a hit lands, the opponent’s head is knocked off and the match is over. A robot can only punch once a second. After being blocked, a robot cannot punch for three seconds with either hand.
