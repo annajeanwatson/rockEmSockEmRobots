@@ -8,6 +8,7 @@ import sys
 import json
 from os import path
 import threading
+threadLock = threading.Lock()
 
 class RaftNode:
     def __init__(self, sqs_config, node_id, isCandidate = False, isLeader = False, isFollower = True):
@@ -307,7 +308,7 @@ class RaftNode:
         self.send_message_to_all_other_nodes(json.dumps(appendMsg))
 
     def start_election(self):
-
+        threadLock.acquire()
         self.set_as_candidate()
         self.currentTerm += 1
         self.votedFor = self.node_id
@@ -317,7 +318,7 @@ class RaftNode:
         # send request for vote messages to all other nodes
         msg = {"type": "RequestVote", "node_id": self.node_id, "term": self.currentTerm, "lastLogIndex": self.lastLogIndex, "lastLogTerm": self.lastLogTerm}
         self.send_message_to_all_other_nodes(json.dumps(msg))
-
+        threadLock.release()
 
     def main_loop(self):
 
